@@ -62,6 +62,7 @@ export default function Player({ onPositionChange }: PlayerProps) {
       })
     }
   })
+  
 
   return (
     <mesh ref={meshRef} position={[0, 0.5, 8]}>
