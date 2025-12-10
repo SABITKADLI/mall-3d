@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 
-interface Department {
+export interface Department {
   id: string
   name: string
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number }
@@ -14,23 +14,23 @@ export const departments: Department[] = [
   {
     id: 'electronics',
     name: 'Electronics',
-    bounds: { minX: -10, maxX: -4, minZ: -2, maxZ: 2 },
+    bounds: { minX: -10, maxX: -4, minZ: -3, maxZ: 3 },
     color: '#4a90e2',
-    products: ['product-handle-1', 'product-handle-2'] // Replace with your Shopify handles
+    products: [] // Add your Shopify product handles here
   },
   {
     id: 'home',
     name: 'Home & Living',
-    bounds: { minX: -2, maxX: 4, minZ: -2, maxZ: 2 },
+    bounds: { minX: -2, maxX: 4, minZ: -3, maxZ: 3 },
     color: '#e27d60',
-    products: ['home-product-1', 'home-product-2']
+    products: [] // Add your Shopify product handles here
   },
   {
     id: 'fashion',
     name: 'Fashion',
-    bounds: { minX: 6, maxX: 12, minZ: -2, maxZ: 2 },
+    bounds: { minX: 6, maxX: 12, minZ: -3, maxZ: 3 },
     color: '#85c285',
-    products: ['fashion-product-1', 'fashion-product-2']
+    products: [] // Add your Shopify product handles here
   }
 ]
 
