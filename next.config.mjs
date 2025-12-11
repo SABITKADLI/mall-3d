@@ -1,6 +1,7 @@
-import type { NextConfig } from 'next'
+// next.config.mjs
 
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   images: {
     remotePatterns: [
       {
@@ -11,7 +12,7 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // Allow dev access from localhost and your LAN IP (with http + port)
+  // Custom field you can read in your code if needed
   allowedDevOrigins: [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
