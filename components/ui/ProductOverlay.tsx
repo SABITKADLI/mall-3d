@@ -148,9 +148,10 @@ export function ProductOverlay() {
         toggleProductOverlay()
       }
 
-      if (e.key.toLowerCase() === 'a' && selectedVariantId && !adding) {
-        e.preventDefault()
-        await handleAddToCart()
+      if (e.key.toLowerCase() === 'e' && selectedVariantId && !adding) {
+        e.preventDefault();
+        console.log('⌨️ Adding to cart with keyboard');
+        await handleAddToCart();
       }
     },
     [showProductOverlay, toggleProductOverlay, selectedVariantId, adding]
@@ -343,7 +344,7 @@ export function ProductOverlay() {
             marginTop: '12px',
           }}
         >
-          Press <kbd>A</kbd> to add to cart • <kbd>ESC</kbd> to close
+          Press <kbd>E</kbd> to add to cart • <kbd>ESC</kbd> to close
         </p>
       </div>
     </div>

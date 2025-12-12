@@ -47,6 +47,9 @@ export function Player() {
   
   // Get dynamic bounds from store
   const mallBounds = useStore((state) => state.mallBounds)
+  
+  // --- NEW: Read Joystick Vector ---
+  const inputVector = useStore((state) => state.inputVector)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -89,10 +92,17 @@ export function Player() {
     let moveX = 0
     let moveZ = 0
 
+    // 1. Keyboard Input
     if (keys.w || keys.arrowUp) moveZ -= SPEED
     if (keys.s || keys.arrowDown) moveZ += SPEED
     if (keys.a || keys.arrowLeft) moveX -= SPEED
     if (keys.d || keys.arrowRight) moveX += SPEED
+
+    // 2. Joystick Input (Combine with keyboard)
+    if (inputVector.x !== 0 || inputVector.z !== 0) {
+      moveX += inputVector.x * SPEED
+      moveZ += inputVector.z * SPEED
+    }
 
     const isMoving = moveX !== 0 || moveZ !== 0
 

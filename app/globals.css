@@ -77,6 +77,25 @@ canvas {
   }
 }
 
+.mobile-only {
+  display: none !important;
+}
+
+.desktop-only {
+  display: block !important;
+}
+
+@media (max-width: 768px) {
+  .mobile-only {
+    display: flex !important;
+  }
+  
+  .desktop-only {
+    display: none !important;
+  }
+
+}
+
 /* HUD Styles */
 .hud {
   position: fixed;

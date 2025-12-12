@@ -1,4 +1,7 @@
+'use client'
+
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import type { CartItem, Product } from '@/components/providers/StoreProvider'
 
 export interface GameStore {
@@ -8,6 +11,9 @@ export interface GameStore {
 
   // Mall bounds (dynamic)
   mallBounds: { minX: number; maxX: number; minZ: number; maxZ: number } | null
+
+  // --- NEW: Joystick Input Vector ---
+  inputVector: { x: number; z: number }
 
   // Cart state
   cartId: string | null
@@ -24,6 +30,10 @@ export interface GameStore {
   setPlayerPos: (pos: { x: number; z: number }) => void
   setPlayerRot: (rot: number) => void
   setMallBounds: (bounds: { minX: number; maxX: number; minZ: number; maxZ: number }) => void
+  
+  // --- NEW: Joystick Setter ---
+  setInputVector: (vector: { x: number; z: number }) => void
+
   setSelectedProduct: (product: Product | null) => void
   addSelectedProduct: (product: Product) => void
   removeSelectedProduct: (productId: string) => void
@@ -40,81 +50,101 @@ export interface GameStore {
   getTotalItems: () => number
 }
 
-export const useStore = create<GameStore>((set, get) => ({
-  // Initial state
-  playerPos: { x: 0, z: 0 },
-  playerRot: 0,
-  mallBounds: null,
-  cartId: null,
-  cartItems: [],
-  selectedProduct: null,
-  selectedProducts: [],
-  showProductOverlay: false,
-  showCartOverlay: false,
-  isCheckingOut: false,
+export const useStore = create<GameStore>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      playerPos: { x: 0, z: 0 },
+      playerRot: 0,
+      mallBounds: null,
+      
+      // Initialize Joystick
+      inputVector: { x: 0, z: 0 },
 
-  // Player actions
-  setPlayerPos: (pos) => set({ playerPos: pos }),
-  setPlayerRot: (rot) => set({ playerRot: rot }),
-  setMallBounds: (bounds) => set({ mallBounds: bounds }),
+      cartId: null,
+      cartItems: [],
+      selectedProduct: null,
+      selectedProducts: [],
+      showProductOverlay: false,
+      showCartOverlay: false,
+      isCheckingOut: false,
 
-  // Product selection actions
-  setSelectedProduct: (product) => set({ selectedProduct: product }),
-  
-  addSelectedProduct: (product) =>
-    set((state) => {
-      const exists = state.selectedProducts.find((p) => p.id === product.id)
-      if (exists) return state
-      return { 
-        selectedProducts: [...state.selectedProducts, product],
-        showProductOverlay: false
-      }
+      // Player actions
+      setPlayerPos: (pos) => set({ playerPos: pos }),
+      setPlayerRot: (rot) => set({ playerRot: rot }),
+      setMallBounds: (bounds) => set({ mallBounds: bounds }),
+      
+      // --- NEW: Joystick Action ---
+      setInputVector: (vector) => set({ inputVector: vector }),
+
+      // Product selection actions
+      setSelectedProduct: (product) => set({ selectedProduct: product }),
+
+      addSelectedProduct: (product) =>
+        set((state) => {
+          const exists = state.selectedProducts.find((p) => p.id === product.id)
+          if (exists) return state
+          return {
+            selectedProducts: [...state.selectedProducts, product],
+            showProductOverlay: false,
+          }
+        }),
+
+      removeSelectedProduct: (productId) =>
+        set((state) => ({
+          selectedProducts: state.selectedProducts.filter((p) => p.id !== productId),
+        })),
+
+      clearSelectedProducts: () => set({ selectedProducts: [] }),
+
+      // UI toggles
+      toggleProductOverlay: () =>
+        set((state) => ({ showProductOverlay: !state.showProductOverlay })),
+      toggleCartOverlay: () =>
+        set((state) => ({ showCartOverlay: !state.showCartOverlay })),
+
+      // Cart actions
+      setCartId: (id) => set({ cartId: id }),
+      setCartItems: (items) => set({ cartItems: items }),
+      addToCart: (item) =>
+        set((state) => {
+          const existing = state.cartItems.find((i) => i.productId === item.productId)
+          if (existing) {
+            return {
+              cartItems: state.cartItems.map((i) =>
+                i.productId === item.productId
+                  ? { ...i, quantity: i.quantity + item.quantity }
+                  : i
+              ),
+            }
+          }
+          return { cartItems: [...state.cartItems, item] }
+        }),
+      removeFromCart: (productId) =>
+        set((state) => ({
+          cartItems: state.cartItems.filter((i) => i.productId !== productId),
+        })),
+      clearCart: () => set({ cartItems: [], cartId: null }),
+      setIsCheckingOut: (value) => set({ isCheckingOut: value }),
+
+      // Computed values
+      getTotalPrice: () => {
+        const state = get()
+        return state.cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+      },
+      getTotalItems: () => {
+        const state = get()
+        return state.cartItems.reduce((sum, item) => sum + item.quantity, 0)
+      },
     }),
-  
-  removeSelectedProduct: (productId) =>
-    set((state) => ({
-      selectedProducts: state.selectedProducts.filter((p) => p.id !== productId),
-    })),
-  
-  clearSelectedProducts: () => set({ selectedProducts: [] }),
-
-  // UI toggles
-  toggleProductOverlay: () =>
-    set((state) => ({ showProductOverlay: !state.showProductOverlay })),
-  toggleCartOverlay: () =>
-    set((state) => ({ showCartOverlay: !state.showCartOverlay })),
-
-  // Cart actions
-  setCartId: (id) => set({ cartId: id }),
-  setCartItems: (items) => set({ cartItems: items }),
-  addToCart: (item) =>
-    set((state) => {
-      const existing = state.cartItems.find((i) => i.productId === item.productId)
-      if (existing) {
-        return {
-          cartItems: state.cartItems.map((i) =>
-            i.productId === item.productId
-              ? { ...i, quantity: i.quantity + item.quantity }
-              : i
-          ),
-        }
-      }
-      return { cartItems: [...state.cartItems, item] }
-    }),
-  removeFromCart: (productId) =>
-    set((state) => ({
-      cartItems: state.cartItems.filter((i) => i.productId !== productId),
-    })),
-  clearCart: () => set({ cartItems: [], cartId: null }),
-  setIsCheckingOut: (value) => set({ isCheckingOut: value }),
-
-  // Computed values
-  getTotalPrice: () => {
-    const state = get()
-    return state.cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  },
-  getTotalItems: () => {
-    const state = get()
-    return state.cartItems.reduce((sum, item) => sum + item.quantity, 0)
-  },
-}))
+    {
+      name: 'mall-3d-storage', // The key in localStorage
+      storage: createJSONStorage(() => localStorage),
+      // Only persist cartId and cartItems. Everything else (player pos, joystick) resets on reload.
+      partialize: (state) => ({
+        cartId: state.cartId,
+        cartItems: state.cartItems,
+      }),
+    }
+  )
+)

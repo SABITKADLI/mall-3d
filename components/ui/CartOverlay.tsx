@@ -1,7 +1,7 @@
 'use client'
 
 import { useGameStore } from '../providers/StoreProvider'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { getCheckoutUrl } from '@/lib/shopify'
 
@@ -18,8 +18,10 @@ export function CartOverlay() {
   } = useGameStore()
 
   const containerRef = useRef<HTMLElement | null>(null)
+  const [isMounted, setIsMounted] = useState(false) // Fix hydration mismatch
 
   useEffect(() => {
+    setIsMounted(true)
     if (typeof document !== 'undefined') {
       containerRef.current = document.body
     }
@@ -58,7 +60,8 @@ export function CartOverlay() {
     }
   }
 
-  // CRITICAL: Check showCartOverlay BEFORE checking containerRef
+  // Hydration fix: Don't render anything until mounted on client
+  if (!isMounted) return null
   if (!showCartOverlay) return null
   if (!containerRef.current) return null
 
@@ -97,7 +100,7 @@ export function CartOverlay() {
           </div>
         ) : (
           <>
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '20px', maxHeight: '60vh', overflowY: 'auto' }}>
               {cartItems.map((item) => (
                 <div
                   key={item.id}

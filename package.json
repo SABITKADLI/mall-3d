@@ -1,6 +1,6 @@
 {
   "name": "mall-3d",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,22 +10,23 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "next": "14.0.0",
-    "@react-three/fiber": "8.13.0",
-    "@react-three/drei": "9.112.1",
-    "three": "0.157.0",
-    "zustand": "4.4.0",
-    "graphql-request": "5.1.0"
+    "@react-three/drei": "9.114.0",
+    "@react-three/fiber": "8.17.10",
+    "graphql-request": "7.1.0",
+    "next": "14.2.14",
+    "nipplejs": "^0.10.2",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "three": "0.169.0",
+    "zustand": "5.0.0"
   },
   "devDependencies": {
-    "@types/react": "18.2.0",
-    "@types/react-dom": "18.2.0",
-    "@types/node": "20.0.0",
-    "typescript": "5.0.4",
-    "eslint": "8.0.0",
-    "eslint-config-next": "14.0.0",
-    "@tailwindcss/postcss": "4.0.0"
+    "@tailwindcss/postcss": "4.0.0",
+    "@types/node": "^20.12.12",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "8.57.0",
+    "eslint-config-next": "14.2.14",
+    "typescript": "5.4.5"
   }
 }
