@@ -3,11 +3,15 @@
 import { Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import { LoadingScreen } from '@/components/ui/LoadingScreen'
-// Import the joystick component you created
-import { VirtualJoystick } from '@/components/ui/VirtualJoystick'
 
+// Dynamically import Scene with ssr: false
 const Scene = dynamic(() => import('@/components/3d/Scene').then(m => ({ default: m.Scene })), {
   loading: () => <LoadingScreen />,
+  ssr: false,
+})
+
+// Dynamically import VirtualJoystick with ssr: false since nipplejs uses window
+const VirtualJoystick = dynamic(() => import('@/components/ui/VirtualJoystick').then(m => ({ default: m.VirtualJoystick })), {
   ssr: false,
 })
 
