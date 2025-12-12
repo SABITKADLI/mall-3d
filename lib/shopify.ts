@@ -30,16 +30,13 @@ async function shopifyRequest<T>(query: string, variables?: Record<string, any>)
 
   if (result.errors) {
     console.error('Shopify API Error:', result.errors)
-
     const notFound = result.errors.some(
       (e) => e.message === 'Not Found' || e.extensions?.code === 'NOT_FOUND'
     )
-
     if (notFound) {
       // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
       return {} as T
     }
-
     throw new Error(result.errors[0]?.message || 'Shopify API Error')
   }
 
@@ -124,7 +121,6 @@ export async function getCollections() {
     handle: string
     productsCount: number
   }> = []
-
   let hasNextPage = true
   let cursor: string | null = null
   const BATCH_SIZE = 250
@@ -133,8 +129,9 @@ export async function getCollections() {
   console.log('📝 Note: Only collections published to "Online Store" channel will appear')
 
   while (hasNextPage) {
+    // Added @inContext directive for AU catalog pricing
     const query = `
-      query getCollections($first: Int!, $after: String) {
+      query getCollections($first: Int!, $after: String) @inContext(country: AU) {
         collections(first: $first, after: $after) {
           pageInfo {
             hasNextPage
@@ -179,7 +176,7 @@ export async function getCollections() {
     const collectionsWithProducts = data.collections.edges
       .map((edge: CollectionEdge) => {
         const productCount = edge.node.products.edges.length
-        console.log(`  • ${edge.node.title}: ${productCount} products`)
+        console.log(` • ${edge.node.title}: ${productCount} products`)
         return {
           edge,
           productCount,
@@ -211,16 +208,16 @@ export async function getCollections() {
   if (allCollections.length === 0) {
     console.error('❌ NO COLLECTIONS FOUND!')
     console.error('⚠️ POSSIBLE REASONS:')
-    console.error('   1. Collections are not published to "Online Store" sales channel')
-    console.error('   2. Products in collections are not available to Storefront API')
-    console.error('   3. Storefront API access token permissions are incorrect')
-    console.error('   4. Collections exist but have no products')
+    console.error(' 1. Collections are not published to "Online Store" sales channel')
+    console.error(' 2. Products in collections are not available to Storefront API')
+    console.error(' 3. Storefront API access token permissions are incorrect')
+    console.error(' 4. Collections exist but have no products')
     console.error('')
     console.error('🔧 TO FIX IN SHOPIFY ADMIN:')
-    console.error('   1. Go to Products → Collections')
-    console.error('   2. For each collection, click "Manage" → "Sales channels"')
-    console.error('   3. Make sure "Online Store" is checked')
-    console.error('   4. Save changes')
+    console.error(' 1. Go to Products → Collections')
+    console.error(' 2. For each collection, click "Manage" → "Sales channels"')
+    console.error(' 3. Make sure "Online Store" is checked')
+    console.error(' 4. Save changes')
   }
 
   return allCollections
@@ -253,14 +250,14 @@ export async function getProductsByCollection(collectionHandle: string) {
       values: string[]
     }>
   }> = []
-
   let hasNextPage = true
   let cursor: string | null = null
   const BATCH_SIZE = 250
 
   while (hasNextPage) {
+    // Added @inContext directive for AU catalog pricing
     const query = `
-      query getCollectionProducts($handle: String!, $first: Int!, $after: String) {
+      query getCollectionProducts($handle: String!, $first: Int!, $after: String) @inContext(country: AU) {
         collection(handle: $handle) {
           products(first: $first, after: $after) {
             pageInfo {
@@ -368,8 +365,9 @@ export async function getProductsByCollection(collectionHandle: string) {
 }
 
 export async function getProduct(productHandle: string) {
+  // Added @inContext directive for AU catalog pricing
   const query = `
-    query getProduct($handle: String!) {
+    query getProduct($handle: String!) @inContext(country: AU) {
       product(handle: $handle) {
         id
         title
@@ -447,6 +445,7 @@ export async function getProduct(productHandle: string) {
   }>(query, { handle: productHandle })
 
   const product = response.product
+
   return {
     id: product.id,
     title: product.title,
@@ -472,8 +471,9 @@ export async function getProduct(productHandle: string) {
 // ==================== CART OPERATIONS ====================
 
 export async function createCart() {
+  // Cart with AU context for catalog pricing
   const query = `
-    mutation createCart($input: CartInput!) {
+    mutation createCart($input: CartInput!) @inContext(country: AU) {
       cartCreate(input: $input) {
         cart {
           id
@@ -508,8 +508,9 @@ export async function addToCart(
   cartId: string,
   lines: Array<{ merchandiseId: string; quantity: number }>
 ) {
+  // Add to cart with AU context
   const query = `
-    mutation addToCart($cartId: ID!, $lines: [CartLineInput!]!) {
+    mutation addToCart($cartId: ID!, $lines: [CartLineInput!]!) @inContext(country: AU) {
       cartLinesAdd(cartId: $cartId, lines: $lines) {
         cart {
           id
@@ -580,13 +581,13 @@ export async function addToCart(
   if (response.cartLinesAdd.userErrors.length > 0) {
     throw new Error(response.cartLinesAdd.userErrors[0].message)
   }
-
   return response.cartLinesAdd.cart
 }
 
 export async function getCart(cartId: string) {
+  // Get cart with AU context for catalog pricing
   const query = `
-    query getCart($cartId: ID!) {
+    query getCart($cartId: ID!) @inContext(country: AU) {
       cart(id: $cartId) {
         id
         checkoutUrl
@@ -672,6 +673,7 @@ export async function getCart(cartId: string) {
   }>(query, { cartId })
 
   const cart = response.cart
+
   return {
     id: cart.id,
     checkoutUrl: cart.checkoutUrl,
@@ -692,8 +694,9 @@ export async function getCart(cartId: string) {
 }
 
 export async function removeFromCart(cartId: string, lineIds: string[]) {
+  // Remove from cart with AU context
   const query = `
-    mutation removeFromCart($cartId: ID!, $lineIds: [ID!]!) {
+    mutation removeFromCart($cartId: ID!, $lineIds: [ID!]!) @inContext(country: AU) {
       cartLinesRemove(cartId: $cartId, lineIds: $lineIds) {
         cart {
           id
@@ -722,3 +725,4 @@ export async function getCheckoutUrl(cartId: string) {
   const cart = await getCart(cartId)
   return cart.checkoutUrl
 }
+
