@@ -75,6 +75,10 @@ interface ProductVariantNode {
     name: string
     value: string
   }>
+  image?: {
+    src: string
+    altText?: string
+  }
 }
 
 interface ProductNode {
@@ -244,6 +248,10 @@ export async function getProductsByCollection(collectionHandle: string) {
         name: string
         value: string
       }>
+      image?: {
+        src: string
+        altText?: string
+      }
     }>
     options: Array<{
       name: string
@@ -299,6 +307,10 @@ export async function getProductsByCollection(collectionHandle: string) {
                         name
                         value
                       }
+                      image {
+                        src
+                        altText
+                        } 
                     }
                   }
                 }
@@ -334,26 +346,29 @@ export async function getProductsByCollection(collectionHandle: string) {
     }
 
     const products = response.collection.products.edges.map((edge: ProductEdge) => {
-      const node = edge.node
-      return {
-        id: node.id,
-        title: node.title,
-        handle: node.handle,
-        description: node.description,
-        price: parseFloat(node.priceRange.minVariantPrice.amount),
-        image: node.images.edges[0]?.node.src || '/placeholder.jpg',
-        collectionHandle,
-        variantId: node.variants.edges[0]?.node.id || '',
-        variants: node.variants.edges.map((v) => ({
-          id: v.node.id,
-          title: v.node.title,
-          availableForSale: v.node.availableForSale,
-          price: parseFloat(v.node.price.amount),
-          selectedOptions: v.node.selectedOptions,
-        })),
-        options: node.options,
-      }
-    })
+    const node = edge.node
+    return {
+      id: node.id,
+      title: node.title,
+      handle: node.handle,
+      description: node.description,
+      price: parseFloat(node.priceRange.minVariantPrice.amount),
+      image: node.images.edges[0]?.node.src || '/placeholder.jpg',
+      collectionHandle,
+      variantId: node.variants.edges[0]?.node.id || '',
+      variants: node.variants.edges.map((v) => ({
+        id: v.node.id,
+        title: v.node.title,
+        availableForSale: v.node.availableForSale,
+        price: parseFloat(v.node.price.amount),
+        selectedOptions: v.node.selectedOptions,
+        image: v.node.image
+          ? { src: v.node.image.src, altText: v.node.image.altText }
+          : undefined,
+      })),
+      options: node.options,
+    }
+  })
 
     allProducts = [...allProducts, ...products]
 
@@ -365,7 +380,6 @@ export async function getProductsByCollection(collectionHandle: string) {
 }
 
 export async function getProduct(productHandle: string) {
-  // Added @inContext directive for AU catalog pricing
   const query = `
     query getProduct($handle: String!) @inContext(country: AU) {
       product(handle: $handle) {
@@ -400,6 +414,10 @@ export async function getProduct(productHandle: string) {
               selectedOptions {
                 name
                 value
+              }
+              image {
+                src
+                altText
               }
             }
           }
@@ -458,12 +476,16 @@ export async function getProduct(productHandle: string) {
     })),
     variantId: product.variants.edges[0]?.node.id || '',
     variants: product.variants.edges.map((v) => ({
-      id: v.node.id,
-      title: v.node.title,
-      availableForSale: v.node.availableForSale,
-      price: parseFloat(v.node.price.amount),
-      selectedOptions: v.node.selectedOptions,
+  id: v.node.id,
+  title: v.node.title,
+  availableForSale: v.node.availableForSale,
+  price: parseFloat(v.node.price.amount),
+  selectedOptions: v.node.selectedOptions,
+  image: v.node.image
+    ? { src: v.node.image.src, altText: v.node.image.altText }
+    : undefined,
     })),
+
     options: product.options,
   }
 }

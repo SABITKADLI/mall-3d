@@ -15,6 +15,10 @@ interface ProductVariant {
     name: string
     value: string
   }>
+  image?: {
+    src: string
+    altText?: string
+  }
 }
 
 interface ProductOption {
@@ -37,7 +41,6 @@ export function ProductOverlay() {
   const [selectedVariantId, setSelectedVariantId] = useState<string>('')
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
 
-  // selectedProduct is coming from your store; it now includes variants/options from shopify.ts
   const product = selectedProduct as any
 
   // Initialize selected variant/options when product changes
@@ -66,11 +69,9 @@ export function ProductOverlay() {
 
   const handleOptionChange = useCallback(
     (optionName: string, optionValue: string) => {
-      // update local selected options
       setSelectedOptions((prev) => {
         const updated = { ...prev, [optionName]: optionValue }
 
-        // find a variant whose selectedOptions exactly match updated options
         if (product?.variants) {
           const matching = product.variants.find((variant: ProductVariant) => {
             return (
@@ -84,7 +85,6 @@ export function ProductOverlay() {
           if (matching) {
             setSelectedVariantId(matching.id)
           } else {
-            // no exact match – clear variant so Add to Cart is disabled
             setSelectedVariantId('')
           }
         }
@@ -125,7 +125,7 @@ export function ProductOverlay() {
         title: variant ? `${product.title} - ${variant.title}` : product.title,
         price: variant ? variant.price : product.price,
         quantity: 1,
-        image: product.image,
+        image: variant?.image?.src || product.image,
       }
 
       addToCart(cartItem)
@@ -149,9 +149,8 @@ export function ProductOverlay() {
       }
 
       if (e.key.toLowerCase() === 'e' && selectedVariantId && !adding) {
-        e.preventDefault();
-        console.log('⌨️ Adding to cart with keyboard');
-        await handleAddToCart();
+        e.preventDefault()
+        await handleAddToCart()
       }
     },
     [showProductOverlay, toggleProductOverlay, selectedVariantId, adding]
@@ -175,178 +174,258 @@ export function ProductOverlay() {
   )
   const currentPrice = currentVariant?.price ?? product.price
 
+  // 👇 Variant-aware image: use variant image if available, else product image
+  const currentImageSrc: string = currentVariant?.image?.src || product.image
+  const currentImageAlt: string =
+    currentVariant?.image?.altText || currentVariant?.title || product.title
+
   const content = (
     <div className="portal">
       <div className="overlay-backdrop" onClick={toggleProductOverlay} />
-      <div className="overlay-content">
+      <div className="overlay-content enhanced-product-overlay">
         <button
           onClick={toggleProductOverlay}
           style={{
             position: 'absolute',
             top: '12px',
             right: '12px',
-            background: 'none',
-            border: 'none',
-            fontSize: '24px',
+            background: '#ffffff',
+            border: '1px solid #e5e7eb',
+            borderRadius: '999px',
+            width: '32px',
+            height: '32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '18px',
             cursor: 'pointer',
             zIndex: 101,
+            boxShadow: '0 4px 8px rgba(15, 23, 42, 0.25)',
           }}
         >
           ✕
         </button>
 
-        <img
-          src={product.image}
-          alt={product.title}
-          style={{
-            width: '100%',
-            height: '300px',
-            objectFit: 'cover',
-            borderRadius: '8px',
-            marginBottom: '16px',
-          }}
-        />
+        {/* Simple two-column layout on desktop */}
+        <div className="overlay-grid">
+          {/* LEFT: Image gallery */}
+          <div className="overlay-left">
+            <img
+              src={currentImageSrc}
+              alt={currentImageAlt}
+              style={{
+                width: '100%',
+                height: '320px',
+                objectFit: 'cover',
+                borderRadius: '12px',
+                marginBottom: '12px',
+              }}
+            />
+            {/* You can later add small thumbnails here if you fetch product.images list */}
+          </div>
 
-        <h2 style={{ margin: '16px 0 8px 0' }}>{product.title}</h2>
+          {/* RIGHT: Info + options */}
+          <div className="overlay-right">
+            <h2 style={{ margin: '0 0 8px 0', fontSize: '22px', lineHeight: 1.2 }}>
+              {product.title}
+            </h2>
 
-        {hasVariants && (
-          <div
-            style={{
-              marginBottom: '12px',
-              padding: '12px',
-              background: '#f9fafb',
-              borderRadius: '8px',
-            }}
-          >
             <div
               style={{
-                fontSize: '14px',
-                fontWeight: 500,
+                fontSize: '13px',
+                color: '#6b7280',
                 marginBottom: '8px',
-                color: '#374151',
               }}
             >
-              Select options:
+              {product.collectionHandle}
             </div>
 
-            {product.options?.map((option: ProductOption, optionIndex: number) => (
-              <div key={optionIndex} style={{ marginBottom: '12px' }}>
-                <label
+            {hasVariants && (
+              <div
+                style={{
+                  marginBottom: '12px',
+                  padding: '12px',
+                  background: '#f9fafb',
+                  borderRadius: '8px',
+                  border: '1px solid #e5e7eb',
+                }}
+              >
+                <div
                   style={{
-                    display: 'block',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    marginBottom: '4px',
-                    color: '#6b7280',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    marginBottom: '8px',
+                    color: '#111827',
                   }}
                 >
-                  {option.name}
-                </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {option.values.map((value, valueIndex) => {
-                    const isSelected = selectedOptions[option.name] === value
+                  Select options
+                </div>
 
-                    // disable values that never appear on any available variant
-                    const isDisabled =
-                      !product.variants?.some((v: ProductVariant) =>
-                        v.availableForSale &&
-                        v.selectedOptions.some(
-                          (o) => o.name === option.name && o.value === value
+                {product.options?.map((option: ProductOption, optionIndex: number) => (
+                  <div key={optionIndex} style={{ marginBottom: '12px' }}>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        marginBottom: '4px',
+                        color: '#6b7280',
+                      }}
+                    >
+                      {option.name}
+                    </label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {option.values.map((value, valueIndex) => {
+                        const isSelected = selectedOptions[option.name] === value
+
+                        const isDisabled =
+                          !product.variants?.some((v: ProductVariant) =>
+                            v.availableForSale &&
+                            v.selectedOptions.some(
+                              (o) => o.name === option.name && o.value === value
+                            )
+                          )
+
+                        return (
+                          <button
+                            key={valueIndex}
+                            type="button"
+                            onClick={() => handleOptionChange(option.name, value)}
+                            disabled={isDisabled}
+                            style={{
+                              padding: '6px 12px',
+                              border: isSelected ? '2px solid #3b82f6' : '1px solid #d1d5db',
+                              borderRadius: '999px',
+                              background: isSelected ? '#eff6ff' : '#f9fafb',
+                              color: isDisabled ? '#9ca3af' : '#111827',
+                              fontSize: '12px',
+                              cursor: isDisabled ? 'not-allowed' : 'pointer',
+                              opacity: isDisabled ? 0.5 : 1,
+                            }}
+                          >
+                            {value}
+                          </button>
                         )
-                      )
+                      })}
+                    </div>
+                  </div>
+                ))}
 
-                    return (
-                      <button
-                        key={valueIndex}
-                        type="button"
-                        onClick={() => handleOptionChange(option.name, value)}
-                        disabled={isDisabled}
-                        style={{
-                          padding: '6px 12px',
-                          border: isSelected ? '2px solid #3b82f6' : '1px solid #d1d5db',
-                          borderRadius: '20px',
-                          background: isSelected ? '#eff6ff' : '#f9fafb',
-                          color: isDisabled ? '#9ca3af' : '#374151',
-                          fontSize: '12px',
-                          cursor: isDisabled ? 'not-allowed' : 'pointer',
-                          opacity: isDisabled ? 0.5 : 1,
-                        }}
-                      >
-                        {value}
-                      </button>
-                    )
-                  })}
+                <div style={{ fontSize: '12px', color: '#059669', marginTop: '4px' }}>
+                  Selected: {currentVariant?.title || 'No valid combination yet'}
                 </div>
               </div>
-            ))}
+            )}
 
-            <div style={{ fontSize: '12px', color: '#059669', marginTop: '8px' }}>
-              Selected: {currentVariant?.title || 'No valid combination yet'}
+            <p
+              style={{
+                color: '#4b5563',
+                fontSize: '14px',
+                marginBottom: '16px',
+                lineHeight: 1.5,
+                maxHeight: '350px',
+                overflowY: 'auto',
+              }}
+            >
+              {product.description}
+            </p>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '16px',
+              }}
+            >
+              <span style={{ fontSize: '26px', fontWeight: 700 }}>
+                ${currentPrice.toFixed(2)}
+              </span>
+              <span
+                style={{
+                  fontSize: '12px',
+                  color: '#10b981',
+                  fontWeight: 500,
+                }}
+              >
+                In stock
+              </span>
             </div>
+
+            <button
+              onClick={handleAddToCart}
+              disabled={!selectedVariantId || adding}
+              className="btn-primary"
+              style={{
+                width: '100%',
+                marginBottom: '8px',
+                opacity: !selectedVariantId ? 0.5 : 1,
+                cursor: !selectedVariantId ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {adding ? 'Adding...' : '🛒 Add to Cart'}
+            </button>
+
+            <p
+              style={{
+                fontSize: '12px',
+                color: '#9ca3af',
+                textAlign: 'center',
+                marginTop: '8px',
+              }}
+            >
+              Press <kbd>E</kbd> to add to cart • <kbd>ESC</kbd> to close
+            </p>
           </div>
-        )}
-
-        <p
-          style={{
-            color: '#6b7280',
-            fontSize: '14px',
-            marginBottom: '16px',
-            lineHeight: '1.5',
-          }}
-        >
-          {product.description}
-        </p>
-
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '20px',
-            paddingBottom: '20px',
-            borderBottom: '1px solid #e5e7eb',
-          }}
-        >
-          <span style={{ fontSize: '24px', fontWeight: 'bold' }}>
-            ${currentPrice.toFixed(2)}
-          </span>
-          <span
-            style={{
-              backgroundColor: '#e5e7eb',
-              padding: '4px 12px',
-              borderRadius: '20px',
-              fontSize: '12px',
-            }}
-          >
-            {product.collectionHandle}
-          </span>
         </div>
-
-        <button
-          onClick={handleAddToCart}
-          disabled={!selectedVariantId || adding}
-          className="btn-primary"
-          style={{
-            width: '100%',
-            marginBottom: '8px',
-            opacity: !selectedVariantId ? 0.5 : 1,
-            cursor: !selectedVariantId ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {adding ? 'Adding...' : '🛒 Add to Cart'}
-        </button>
-
-        <p
-          style={{
-            fontSize: '12px',
-            color: '#9ca3af',
-            textAlign: 'center',
-            marginTop: '12px',
-          }}
-        >
-          Press <kbd>E</kbd> to add to cart • <kbd>ESC</kbd> to close
-        </p>
       </div>
+
+      {/* Responsive overlay width / layout */}
+      <style jsx>{`
+        .overlay-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.5);
+          z-index: 100;
+        }
+        .overlay-content {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: #ffffff;
+          border-radius: 16px;
+          padding: 20px;
+          max-height: undefined;
+          overflow: auto;
+          z-index: 101;
+          width: 90vw;
+          max-width: 1000px; /* desktop: roughly double width vs earlier */
+          box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+        }
+        .overlay-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .overlay-left,
+        .overlay-right {
+          width: 100%;
+        }
+
+        @media (min-width: 768px) {
+          .overlay-grid {
+            flex-direction: row;
+            align-items: flex-start;
+          }
+          .overlay-left {
+            width: 50%;
+          }
+          .overlay-right {
+            width: 50%;
+          }
+        }
+      `}</style>
     </div>
   )
 
