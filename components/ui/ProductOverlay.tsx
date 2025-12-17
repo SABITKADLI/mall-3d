@@ -53,6 +53,13 @@ export function ProductOverlay() {
     options?: ProductOption[]
   }
 
+  // mount portal target
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      containerRef.current = document.body
+    }
+  }, [])
+
   // Initialize selected variant/options when product changes
   useEffect(() => {
     if (product?.variants?.length > 0) {
@@ -70,12 +77,6 @@ export function ProductOverlay() {
       }
     }
   }, [product])
-
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      containerRef.current = document.body
-    }
-  }, [])
 
   const handleOptionChange = useCallback(
     (optionName: string, optionValue: string) => {
@@ -105,7 +106,7 @@ export function ProductOverlay() {
     [product]
   )
 
-  const handleAddToCart = async () => {
+  const handleAddToCart = useCallback(async () => {
     if (!product || !selectedVariantId || adding) return
 
     setAdding(true)
@@ -148,7 +149,15 @@ export function ProductOverlay() {
     } finally {
       setAdding(false)
     }
-  }
+  }, [
+    product,
+    selectedVariantId,
+    adding,
+    cartId,
+    setCartId,
+    addToCart,
+    toggleProductOverlay,
+  ])
 
   const handleKeyDown = useCallback(
     async (e: KeyboardEvent) => {
@@ -163,7 +172,7 @@ export function ProductOverlay() {
         await handleAddToCart()
       }
     },
-    [showProductOverlay, toggleProductOverlay, selectedVariantId, adding]
+    [showProductOverlay, toggleProductOverlay, selectedVariantId, adding, handleAddToCart]
   )
 
   useEffect(() => {
@@ -173,7 +182,7 @@ export function ProductOverlay() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [showProductOverlay, handleKeyDown, handleAddToCart])
+  }, [showProductOverlay, handleKeyDown])
 
   if (!showProductOverlay || !product) return null
   if (!containerRef.current) return null
@@ -184,7 +193,6 @@ export function ProductOverlay() {
   )
   const currentPrice = currentVariant?.price ?? product.price
 
-  // 👇 Variant-aware image: use variant image if available, else product image
   const currentImageSrc: string = currentVariant?.image?.src || product.image
   const currentImageAlt: string =
     currentVariant?.image?.altText || currentVariant?.title || product.title
@@ -216,9 +224,8 @@ export function ProductOverlay() {
           ✕
         </button>
 
-        {/* Simple two-column layout on desktop */}
         <div className="overlay-grid">
-          {/* LEFT: Image gallery */}
+          {/* LEFT: Image */}
           <div className="overlay-left">
             <Image
               src={currentImageSrc}
@@ -233,7 +240,6 @@ export function ProductOverlay() {
                 marginBottom: '12px',
               }}
             />
-            {/* You can later add small thumbnails here if you fetch product.images list */}
           </div>
 
           {/* RIGHT: Info + options */}
@@ -392,7 +398,6 @@ export function ProductOverlay() {
         </div>
       </div>
 
-      {/* Responsive overlay width / layout */}
       <style jsx>{`
         .overlay-backdrop {
           position: fixed;
@@ -408,11 +413,11 @@ export function ProductOverlay() {
           background: #ffffff;
           border-radius: 16px;
           padding: 20px;
-          max-height: undefined;
+          max-height: none;
           overflow: auto;
           z-index: 101;
           width: 90vw;
-          max-width: 1000px; /* desktop: roughly double width vs earlier */
+          max-width: 1000px;
           box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
         }
         .overlay-grid {

@@ -108,7 +108,7 @@ export function MallLayout() {
     loadCollections()
   }, [setMallBounds])
 
-  const { floorWidth, floorDepth, wallThickness, wallHeight } = mallDimensions
+  const { floorWidth, floorDepth: _floorDepth, wallThickness, wallHeight } = mallDimensions
   const halfWidth = floorWidth / 2
 
   return (

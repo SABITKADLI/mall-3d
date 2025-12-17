@@ -1,9 +1,10 @@
 'use client'
 
 import { useGameStore } from '../providers/StoreProvider'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { getCheckoutUrl } from '@/lib/shopify'
+import Image from 'next/image'
 
 export function CartOverlay() {
   const {
@@ -18,7 +19,7 @@ export function CartOverlay() {
   } = useGameStore()
 
   const containerRef = useRef<HTMLElement | null>(null)
-  const [isMounted, setIsMounted] = useState(false) // Fix hydration mismatch
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
@@ -26,6 +27,20 @@ export function CartOverlay() {
       containerRef.current = document.body
     }
   }, [])
+
+  const handleCheckout = useCallback(async () => {
+    if (!cartId || isCheckingOut) return
+
+    try {
+      setIsCheckingOut(true)
+      const checkoutUrl = await getCheckoutUrl(cartId)
+      window.location.href = checkoutUrl
+    } catch (error) {
+      console.error('Checkout failed:', error)
+      alert('Checkout failed. Please try again.')
+      setIsCheckingOut(false)
+    }
+  }, [cartId, isCheckingOut, setIsCheckingOut])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -44,23 +59,8 @@ export function CartOverlay() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [showCartOverlay, toggleCartOverlay, cartId])
+  }, [showCartOverlay, toggleCartOverlay, handleCheckout])
 
-  const handleCheckout = async () => {
-    if (!cartId || isCheckingOut) return
-
-    try {
-      setIsCheckingOut(true)
-      const checkoutUrl = await getCheckoutUrl(cartId)
-      window.location.href = checkoutUrl
-    } catch (error) {
-      console.error('Checkout failed:', error)
-      alert('Checkout failed. Please try again.')
-      setIsCheckingOut(false)
-    }
-  }
-
-  // Hydration fix: Don't render anything until mounted on client
   if (!isMounted) return null
   if (!showCartOverlay) return null
   if (!containerRef.current) return null
@@ -68,7 +68,7 @@ export function CartOverlay() {
   const content = (
     <div className="portal">
       <div className="overlay-backdrop" onClick={toggleCartOverlay} />
-      <div className="overlay-content" style={{ maxWidth: '600px' }}>
+      <div className="overlay-content" style={{ maxWidth: '600px', position: 'relative' }}>
         <button
           onClick={toggleCartOverlay}
           style={{
@@ -111,9 +111,11 @@ export function CartOverlay() {
                     borderBottom: '1px solid #e5e7eb',
                   }}
                 >
-                  <img
+                  <Image
                     src={item.image}
                     alt={item.title}
+                    width={60}
+                    height={60}
                     style={{
                       width: '60px',
                       height: '60px',
