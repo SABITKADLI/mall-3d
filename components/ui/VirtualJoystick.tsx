@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import nipplejs from 'nipplejs'
+import nipplejs, { JoystickData } from 'nipplejs'
 import { useStore } from '@/lib/store'
 
 export function VirtualJoystick() {
@@ -28,14 +28,14 @@ export function VirtualJoystick() {
     })
 
     // Handle Movement
-    managerRef.current.on('move', (_: any, data: any) => {
+    managerRef.current.on('move', (_: unknown, data: JoystickData) => {
       activeRef.current = true
-      
+
       // Convert angle/force to X/Z vector
       // NippleJS 0 degrees is Right (X+), 90 is Up (Y- in 2D, Z- in 3D)
       const angle = data.angle.radian
       const force = Math.min(data.force, 1.0) // Cap speed at 1.0
-      
+
       // Calculate 3D direction (Z is forward/back)
       // Math.cos(angle) is X (Left/Right)
       // -Math.sin(angle) is Z (Forward/Back - negative is forward in 3D)

@@ -3,6 +3,7 @@
 import { useGameStore } from '../providers/StoreProvider'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import Image from 'next/image'
 import { CartItem } from '../providers/StoreProvider'
 import { addToCart as shopifyAddToCart, createCart } from '@/lib/shopify'
 
@@ -41,7 +42,16 @@ export function ProductOverlay() {
   const [selectedVariantId, setSelectedVariantId] = useState<string>('')
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
 
-  const product = selectedProduct as any
+  const product = selectedProduct as {
+    id: string
+    title: string
+    description: string
+    image: string
+    price: number
+    collectionHandle: string
+    variants?: ProductVariant[]
+    options?: ProductOption[]
+  }
 
   // Initialize selected variant/options when product changes
   useEffect(() => {
@@ -163,7 +173,7 @@ export function ProductOverlay() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [showProductOverlay, handleKeyDown])
+  }, [showProductOverlay, handleKeyDown, handleAddToCart])
 
   if (!showProductOverlay || !product) return null
   if (!containerRef.current) return null
@@ -210,9 +220,11 @@ export function ProductOverlay() {
         <div className="overlay-grid">
           {/* LEFT: Image gallery */}
           <div className="overlay-left">
-            <img
+            <Image
               src={currentImageSrc}
               alt={currentImageAlt}
+              width={320}
+              height={320}
               style={{
                 width: '100%',
                 height: '320px',

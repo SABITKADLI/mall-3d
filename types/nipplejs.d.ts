@@ -1,9 +1,18 @@
 declare module 'nipplejs' {
+  export interface JoystickData {
+    angle: {
+      degree: number;
+      radian: number;
+    };
+    force: number;
+    // Add other properties as needed based on nipplejs documentation
+  }
+
   export interface JoystickManager {
-    on(event: string, handler: (evt: any, data: any) => void): void;
+    on(event: string, handler: (evt: any, data: JoystickData) => void): void;
     destroy(): void;
   }
-  
+
   export interface JoystickOptions {
     zone?: HTMLElement | null;
     mode?: 'static' | 'dynamic' | 'semi';
