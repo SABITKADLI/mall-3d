@@ -1,10 +1,11 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, ThreeEvent } from '@react-three/fiber'
 import { Group } from 'three'
 import { useStore } from '@/lib/store'
 import { Product } from '@/lib/types'
+import { Text, useTexture } from '@react-three/drei'
 
 interface Product3DProps {
   product: Product
@@ -15,9 +16,12 @@ interface Product3DProps {
 export function Product3D({ product, isNearby, index }: Product3DProps) {
   const groupRef = useRef<Group>(null)
   const [hovered, setHovered] = useState(false)
+  const [popping, setPopping] = useState(false)
+  const [scaleTarget, setScaleTarget] = useState(1)
   const setSelectedProduct = useStore((state) => state.setSelectedProduct)
   const toggleProductOverlay = useStore((state) => state.toggleProductOverlay)
   const showProductOverlay = useStore((state) => state.showProductOverlay)
+  const texture = useTexture(product.image)
 
   // Only the first nearby product (index 0) can be activated with keyboard
   const isFocused = isNearby && index === 0
@@ -42,29 +46,41 @@ export function Product3D({ product, isNearby, index }: Product3DProps) {
 
   useFrame(() => {
     if (groupRef.current) {
-      groupRef.current.rotation.y += 0.01
+      groupRef.current.rotation.y += 0.005
       if (hovered || isFocused) {
         groupRef.current.position.y = 1.3
       } else {
         groupRef.current.position.y = 1
       }
+
+      // Click pop animation
+      const currentScale = groupRef.current.scale.x
+      const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+      const next = lerp(currentScale, scaleTarget, 0.15)
+      groupRef.current.scale.set(next, next, next)
+      if (Math.abs(next - scaleTarget) < 0.001 && popping) {
+        setScaleTarget(1)
+        setPopping(false)
+      }
     }
   })
 
-  const handleClick = (e: any) => {
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation()
     console.log('🖱️ MOUSE: Product clicked:', product.title)
+    setPopping(true)
+    setScaleTarget(1.06)
     setSelectedProduct(product)
     toggleProductOverlay()
   }
 
-  const handlePointerOver = (e: any) => {
+  const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation()
     setHovered(true)
     document.body.style.cursor = 'pointer'
   }
 
-  const handlePointerOut = (e: any) => {
+  const handlePointerOut = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation()
     setHovered(false)
     document.body.style.cursor = 'default'
@@ -79,39 +95,41 @@ export function Product3D({ product, isNearby, index }: Product3DProps) {
       onPointerOut={handlePointerOut}
       onClick={handleClick}
     >
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[0.8, 1.2, 0.5]} />
-        <meshStandardMaterial 
-          color={isActive ? '#00ff00' : '#ffff00'} 
-          emissive={isActive ? '#00ff00' : '#ffaa00'}
-          emissiveIntensity={isActive ? 0.5 : 0.3}
-        />
-      </mesh>
+      {/** Visual: Product card with image and subtle rim */}
+      <group>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[0.8, 1.2, 0.08]} />
+          <meshPhysicalMaterial color="#ffffff" roughness={0.6} metalness={0.05} />
+        </mesh>
+        <mesh position={[0, 0, 0.05]}>
+          <planeGeometry args={[0.76, 1.16]} />
+          <meshBasicMaterial map={texture} toneMapped={false} />
+        </mesh>
 
-      <mesh position={[0, -0.7, 0.3]}>
-        <planeGeometry args={[0.8, 0.4]} />
-        <meshBasicMaterial color="#ffffff" />
-      </mesh>
+        {/** Visual: Soft outline when active */}
+        {isActive && (
+          <mesh position={[0, 0, 0.06]}>
+            <planeGeometry args={[0.82, 1.22]} />
+            <meshBasicMaterial color={'#93c5fd'} transparent opacity={0.4} />
+          </mesh>
+        )}
+      </group>
 
+      {/** Visual: Floating label with name and price when active */}
       {isActive && (
-        <group position={[0, 1.8, 0]}>
-          <mesh>
-            <planeGeometry args={[2, 0.6]} />
-            <meshBasicMaterial color="#000000" />
-          </mesh>
-          <mesh position={[0, 0, 0.01]}>
-            <planeGeometry args={[1.9, 0.5]} />
-            <meshBasicMaterial color={isFocused ? '#00ff00' : '#ffff00'} />
-          </mesh>
+        <group position={[0, 1.6, 0]}>
+          <Text fontSize={0.28} color="#111827" anchorX="center" anchorY="middle">
+            {product.title} • ${product.price.toFixed(2)}
+          </Text>
         </group>
       )}
 
+      {/** Visual: Context hint when focused */}
       {isFocused && (
-        <group position={[0, -1.2, 0]}>
-          <mesh>
-            <planeGeometry args={[1.8, 0.4]} />
-            <meshBasicMaterial color="#00ff00" />
-          </mesh>
+        <group position={[0, -1.1, 0]}>
+          <Text fontSize={0.18} color="#2563eb" anchorX="center" anchorY="top">
+            Press Space or Enter to view • Click to add to cart
+          </Text>
         </group>
       )}
     </group>

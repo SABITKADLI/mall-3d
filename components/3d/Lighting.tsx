@@ -3,27 +3,33 @@
 export function Lighting() {
   return (
     <>
-      {/* Ambient light */}
+      {/** Visual: Bright but soft global fill */}
       <ambientLight intensity={0.6} color="#ffffff" />
 
-      {/* Directional light (sun) */}
+      {/** Visual: Natural skylight tint */}
+      <hemisphereLight args={[0xffffff, 0xb0b0b0, 0.5]} />
+
+      {/** Visual: Soft key light simulating skylight */}
       <directionalLight
-        position={[10, 10, 10]}
-        intensity={0.8}
-        color="#ffffff"
+        position={[20, 25, -5]}
+        intensity={0.9}
+        color="#fff3e0"
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
         shadow-camera-near={0.1}
-        shadow-camera-far={50}
-        shadow-camera-left={-20}
-        shadow-camera-right={20}
-        shadow-camera-top={20}
-        shadow-camera-bottom={-20}
+        shadow-camera-far={100}
+        shadow-camera-left={-50}
+        shadow-camera-right={50}
+        shadow-camera-top={50}
+        shadow-camera-bottom={-50}
       />
 
-      {/* Fill light */}
-      <pointLight position={[-10, 5, -10]} intensity={0.4} color="#e0e7ff" />
+      {/** Visual: Gentle fill to reduce contrast */}
+      <pointLight position={[-15, 10, -10]} intensity={0.35} color="#ffffff" />
+
+      {/** Visual: Warm shop accent lighting */}
+      <pointLight position={[10, 4, 20]} intensity={0.28} color="#f59e0b" />
     </>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { Canvas } from '@react-three/fiber'
+import * as THREE from 'three'
 import { Suspense, useEffect } from 'react'
 import { Player } from './Player'
 import { FollowCamera } from './FollowCamera'
@@ -34,8 +35,17 @@ export function Scene() {
         camera={{ position: [0, 8, 10], fov: 50 }}
         style={{ width: '100%', height: '100%' }}
         shadows
+        dpr={[1, 2]}
+        onCreated={({ gl }) => {
+          gl.toneMapping = THREE.ACESFilmicToneMapping
+          gl.toneMappingExposure = 1
+          gl.outputColorSpace = THREE.SRGBColorSpace
+        }}
       >
         <Suspense fallback={null}>
+          {/* Atmospheric fog for depth */}
+          <fog attach="fog" args={['#f5f5f7', 20, 200]} />
+
           <Lighting />
           <Environment />
           <MallLayout />

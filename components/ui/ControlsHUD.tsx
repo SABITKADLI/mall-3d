@@ -64,13 +64,14 @@ export function ControlsHUD() {
           position: 'fixed',
           top: '20px',
           right: '20px',
-          background: '#2563eb',
-          color: 'white',
-          padding: '12px 20px',
-          borderRadius: '30px',
-          fontWeight: 'bold',
+          backdropFilter: 'blur(8px)',
+          background: 'rgba(37, 99, 235, 0.7)',
+          color: '#ffffff',
+          padding: '10px 16px',
+          borderRadius: '24px',
+          fontWeight: 600,
           cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
@@ -83,20 +84,14 @@ export function ControlsHUD() {
         }}
       >
         <span style={{ fontSize: '20px' }}>🛒</span>
-        <span>{totalItems}</span>
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{totalItems}</span>
       </div>
 
       {/* --- Desktop Controls Guide --- */}
-      <div className="controls-guide desktop-only" style={{ pointerEvents: 'none' }}>
-        <div style={{ marginBottom: '12px', fontWeight: '600', color: '#60a5fa' }}>
-          CONTROLS
-        </div>
-        <div style={{ lineHeight: '1.8', fontSize: '11px' }}>
-          <div><kbd>W/A/S/D</kbd> - Move</div>
-          <div><kbd>ENTER</kbd> - View Product</div>
-          <div><kbd>E</kbd> - Add to Cart</div>
-          <div><kbd>Q</kbd> - Cart</div>
-          <div><kbd>ESC</kbd> - Close</div>
+      <div className="controls-guide desktop-only" style={{ pointerEvents: 'none', position: 'fixed', bottom: '24px', left: '24px', color: '#9ca3af' }}>
+        <div style={{ lineHeight: '1.8', fontSize: '12px' }}>
+          <div><kbd>W/A/S/D</kbd> Move • <kbd>Q</kbd> Cart</div>
+          <div><kbd>Enter</kbd>/<kbd>Space</kbd> View • Click Add to cart</div>
         </div>
       </div>
       
@@ -112,14 +107,14 @@ export function ControlsHUD() {
             position: 'fixed',
             bottom: '180px', // Positioned above the joystick area
             right: '30px',
-            background: 'white',
+            background: 'rgba(255,255,255,0.9)',
             border: 'none',
             borderRadius: '12px',
             padding: '12px 20px',
             color: '#2563eb',
-            fontWeight: 'bold',
+            fontWeight: 600,
             fontSize: '14px',
-            boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',

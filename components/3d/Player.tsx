@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
-import type { Group } from 'three'
+import type { Group, Object3D, AnimationClip } from 'three'
 import { useStore } from '@/lib/store'
+import { useGLTF, useAnimations } from '@react-three/drei'
 
 interface KeyState {
   w: boolean
@@ -19,18 +20,36 @@ interface KeyState {
 const SPEED = 0.15
 const BOB_SPEED = 8
 const BOB_AMOUNT = 0.08
+const IDLE_DELAY = 60
 
-// Default fallback bounds (used until mall dimensions are loaded)
 const DEFAULT_BOUNDS = {
   minX: -39,
   maxX: 39,
-  minZ: -69,
-  maxZ: 69,
+  minZ: -100,
+  maxZ: 500,
 }
 
+interface GLTFResult {
+  scene: Object3D
+  animations: AnimationClip[]
+}
+
+useGLTF.preload('/assets/3d/player/character.glb')
+
 export function Player() {
-  const groupRef = useRef<Group>(null)
+  const rootRef = useRef<Group>(null)
+  const visualRef = useRef<Group>(null)
+
+  const armBonesRef = useRef<{
+    left?: Object3D
+    right?: Object3D
+  }>({})
+
   const bobOffset = useRef(0)
+  const prevMovingRef = useRef(false)
+  const idleTimer = useRef(0)
+  const isPlayingIdleAnim = useRef(false)
+
   const keysRef = useRef<KeyState>({
     w: false,
     a: false,
@@ -44,12 +63,83 @@ export function Player() {
 
   const setPlayerPos = useStore((state) => state.setPlayerPos)
   const setPlayerRot = useStore((state) => state.setPlayerRot)
-  
-  // Get dynamic bounds from store
   const mallBounds = useStore((state) => state.mallBounds)
-  
-  // --- NEW: Read Joystick Vector ---
   const inputVector = useStore((state) => state.inputVector)
+
+  const gltf = useGLTF(
+    '/assets/3d/player/character.glb',
+    true,
+  ) as unknown as GLTFResult
+
+  const { actions, names: clipNames, mixer } = useAnimations(
+    gltf?.animations || [],
+    gltf?.scene as Object3D,
+  )
+
+  const idleClipName = useMemo(
+    () => (clipNames || []).find((n: string) => /idle/i.test(n)),
+    [clipNames],
+  )
+
+  const walkClipName = useMemo(
+    () =>
+      (clipNames || []).find((n: string) => /walk|run/i.test(n)) ||
+      clipNames?.[0],
+    [clipNames],
+  )
+
+  // Helper: relaxed idle pose based on your walk values
+  const applyRelaxedArms = () => {
+    const left = armBonesRef.current.left
+    const right = armBonesRef.current.right
+    if (left) {
+      // from walk: x≈-0.15, y≈1.18, z≈0.10
+      left.rotation.x = -0.01   // less swing
+      left.rotation.y = 1.18    // keep around-body rotation
+      left.rotation.z = 0.02    // almost no roll
+    }
+    if (right) {
+      // from walk: x≈-0.20, y≈1.18, z≈-0.03
+      right.rotation.x = -0.05
+      right.rotation.y = 1.18
+      right.rotation.z = -0.02
+    }
+  }
+
+  useEffect(() => {
+    if (rootRef.current) {
+      rootRef.current.position.set(0, 0, 0)
+      setPlayerPos({ x: 0, z: 0 })
+      setPlayerRot(0)
+    }
+  }, [setPlayerPos, setPlayerRot])
+
+  // Find arm bones and set initial relaxed pose
+  useEffect(() => {
+    if (!gltf?.scene) return
+
+    gltf.scene.traverse((obj) => {
+      const n = obj.name.toLowerCase()
+
+      if (n.includes('upperarm_l')) {
+        armBonesRef.current.left = obj
+      }
+      if (n.includes('upperarm_r')) {
+        armBonesRef.current.right = obj
+      }
+    })
+
+    console.log('ARM BONES:', {
+      left: armBonesRef.current.left?.name,
+      right: armBonesRef.current.right?.name,
+    })
+
+    // Wait a frame so skeleton is ready, then pose
+    requestAnimationFrame(() => {
+      applyRelaxedArms()
+      console.log('✅ Applied relaxed arms at start')
+    })
+  }, [gltf?.scene])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -85,67 +175,142 @@ export function Player() {
     }
   }, [])
 
-  useFrame((state, delta) => {
-    if (!groupRef.current) return
+  useFrame((_, delta) => {
+    if (!rootRef.current || !visualRef.current) return
 
     const keys = keysRef.current
     let moveX = 0
     let moveZ = 0
 
-    // 1. Keyboard Input
-    if (keys.w || keys.arrowUp) moveZ -= SPEED
-    if (keys.s || keys.arrowDown) moveZ += SPEED
+    if (keys.w || keys.arrowUp) moveZ += SPEED
+    if (keys.s || keys.arrowDown) moveZ -= SPEED
     if (keys.a || keys.arrowLeft) moveX -= SPEED
     if (keys.d || keys.arrowRight) moveX += SPEED
 
-    // 2. Joystick Input (Combine with keyboard)
     if (inputVector.x !== 0 || inputVector.z !== 0) {
       moveX += inputVector.x * SPEED
       moveZ += inputVector.z * SPEED
     }
 
     const isMoving = moveX !== 0 || moveZ !== 0
-
-    // Use dynamic bounds from store, fallback to default if not loaded yet
-    const BOUNDS = mallBounds || DEFAULT_BOUNDS
+    const bounds = mallBounds || DEFAULT_BOUNDS
+    const root = rootRef.current
+    const visual = visualRef.current
 
     if (isMoving) {
-      const newX = Math.max(BOUNDS.minX, Math.min(BOUNDS.maxX, groupRef.current.position.x + moveX))
-      const newZ = Math.max(BOUNDS.minZ, Math.min(BOUNDS.maxZ, groupRef.current.position.z + moveZ))
+      const newX = Math.max(
+        bounds.minX,
+        Math.min(bounds.maxX, root.position.x + moveX),
+      )
+      const newZ = Math.max(
+        bounds.minZ,
+        Math.min(bounds.maxZ, root.position.z + moveZ),
+      )
 
-      groupRef.current.position.x = newX
-      groupRef.current.position.z = newZ
+      root.position.x = newX
+      root.position.z = newZ
 
       const angle = Math.atan2(moveX, moveZ)
-      groupRef.current.rotation.y = angle
+      root.rotation.y = angle
       setPlayerRot(angle)
 
       bobOffset.current += delta * BOB_SPEED
-      groupRef.current.position.y = Math.abs(Math.sin(bobOffset.current)) * BOB_AMOUNT
+      visual.position.y = Math.abs(Math.sin(bobOffset.current)) * BOB_AMOUNT
+
+      idleTimer.current = 0
+      isPlayingIdleAnim.current = false
     } else {
-      groupRef.current.position.y = 0
+      visual.position.y = 0
       bobOffset.current = 0
+      idleTimer.current += delta
     }
 
-    setPlayerPos({
-      x: groupRef.current.position.x,
-      z: groupRef.current.position.z,
-    })
+    setPlayerPos({ x: root.position.x, z: root.position.z })
+
+    if (!actions) return
+
+    if (isMoving !== prevMovingRef.current) {
+      if (isMoving) {
+        if (idleClipName && actions[idleClipName]) {
+          actions[idleClipName].stop()
+        }
+        if (walkClipName && actions[walkClipName]) {
+          actions[walkClipName].reset().play()
+        }
+        isPlayingIdleAnim.current = false
+      } else {
+        if (walkClipName && actions[walkClipName]) {
+          actions[walkClipName].stop()
+        }
+        if (idleClipName && actions[idleClipName]) {
+          actions[idleClipName].stop()
+        }
+        mixer?.stopAllAction()
+        isPlayingIdleAnim.current = false
+
+        // Just stopped moving → re-apply relaxed arms once
+        applyRelaxedArms()
+        console.log('✅ Applied relaxed arms after stop')
+      }
+      prevMovingRef.current = isMoving
+    }
+
+    if (
+      !isMoving &&
+      !isPlayingIdleAnim.current &&
+      idleTimer.current >= IDLE_DELAY &&
+      idleClipName &&
+      actions[idleClipName]
+    ) {
+      actions[idleClipName].reset().play()
+      isPlayingIdleAnim.current = true
+    }
   })
 
   return (
-    <group ref={groupRef} position={[0, 0, 0]}>
-      {/* Player body - pink box */}
-      <mesh position={[0, 0.5, 0]} castShadow receiveShadow>
-        <boxGeometry args={[0.6, 1, 0.6]} />
-        <meshStandardMaterial color="#ec4899" />
-      </mesh>
-
-      {/* Face direction indicator - blue box */}
-      <mesh position={[0, 0.5, 0.4]} castShadow receiveShadow>
-        <boxGeometry args={[0.2, 0.2, 0.2]} />
-        <meshStandardMaterial color="#3b82f6" />
-      </mesh>
+    <group ref={rootRef} position={[0, 0, 0]}>
+      {gltf?.scene ? (
+        <group ref={visualRef} scale={0.9} position={[0, 0, 0]}>
+          <primitive object={gltf.scene} castShadow receiveShadow />
+        </group>
+      ) : (
+        <group ref={visualRef}>
+          <mesh position={[0, 0.9, 0]} castShadow receiveShadow>
+            <capsuleGeometry args={[0.45, 0.8, 8, 16]} />
+            <meshPhysicalMaterial
+              color="#d1d5db"
+              roughness={0.6}
+              metalness={0.1}
+              clearcoat={0.4}
+              clearcoatRoughness={0.4}
+            />
+          </mesh>
+          <mesh position={[0, 0.35, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[0.38, 0.42, 0.25, 16]} />
+            <meshPhysicalMaterial
+              color="#374151"
+              roughness={0.5}
+              metalness={0.2}
+            />
+          </mesh>
+          <mesh position={[0, 0.05, 0]} castShadow receiveShadow>
+            <boxGeometry args={[0.6, 0.3, 0.6]} />
+            <meshPhysicalMaterial
+              color="#111827"
+              roughness={0.4}
+              metalness={0.2}
+            />
+          </mesh>
+          <mesh position={[0, -0.35, 0]} castShadow receiveShadow>
+            <boxGeometry args={[0.55, 0.3, 0.6]} />
+            <meshPhysicalMaterial
+              color="#111827"
+              roughness={0.5}
+              metalness={0.1}
+            />
+          </mesh>
+        </group>
+      )}
     </group>
   )
 }
