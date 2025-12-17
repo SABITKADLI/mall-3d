@@ -9,8 +9,6 @@ export default function CheckoutClient() {
   const searchParams = useSearchParams()
 
   useEffect(() => {
-    const cartId = searchParams.get('cartId')
-    // if you need to do something with cartId, do it here
     setTimeout(() => {
       router.push('/')
     }, 2000)

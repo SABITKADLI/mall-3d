@@ -110,7 +110,6 @@ export function MallLayout() {
 
   const { floorWidth, floorDepth, wallThickness, wallHeight } = mallDimensions
   const halfWidth = floorWidth / 2
-  const halfDepth = floorDepth / 2
 
   return (
     <>
