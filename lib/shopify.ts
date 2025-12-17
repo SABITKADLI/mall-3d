@@ -8,7 +8,12 @@ interface GraphQLResponse<T> {
   errors?: Array<{ message: string; extensions?: { code?: string } }>
 }
 
-async function shopifyRequest<T>(query: string, variables?: Record<string, any>): Promise<T> {
+type ShopifyVariables = Record<string, unknown>
+
+async function shopifyRequest<T>(
+  query: string,
+  variables?: ShopifyVariables
+): Promise<T> {
   if (!SHOPIFY_ACCESS_TOKEN) {
     throw new Error('Shopify access token not configured')
   }
@@ -26,22 +31,26 @@ async function shopifyRequest<T>(query: string, variables?: Record<string, any>)
     next: { revalidate: 60 },
   })
 
-  const result: GraphQLResponse<T> = await response.json()
+  const result = (await response.json()) as GraphQLResponse<T>
 
-  if (result.errors) {
+  if (result.errors && result.errors.length > 0) {
     console.error('Shopify API Error:', result.errors)
     const notFound = result.errors.some(
       (e) => e.message === 'Not Found' || e.extensions?.code === 'NOT_FOUND'
     )
     if (notFound) {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
       return {} as T
     }
     throw new Error(result.errors[0]?.message || 'Shopify API Error')
   }
 
-  return result.data as T
+  if (!result.data) {
+    throw new Error('Shopify API Error: missing data field in response')
+  }
+
+  return result.data
 }
+
 
 // ==================== TYPE DEFINITIONS ====================
 
