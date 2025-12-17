@@ -3,6 +3,7 @@
 import { useEffect, useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { Group, Object3D, AnimationClip } from 'three'
+import * as THREE from 'three'
 import { useStore } from '@/lib/store'
 import { useGLTF, useAnimations } from '@react-three/drei'
 
@@ -18,8 +19,6 @@ interface KeyState {
 }
 
 const SPEED = 0.15
-const BOB_SPEED = 8
-const BOB_AMOUNT = 0.08
 const IDLE_DELAY = 60
 
 const DEFAULT_BOUNDS = {
@@ -45,10 +44,10 @@ export function Player() {
     right?: Object3D
   }>({})
 
-  const bobOffset = useRef(0)
+  const hipBoneRef = useRef<Object3D | null>(null)
+
   const prevMovingRef = useRef(false)
   const idleTimer = useRef(0)
-  const isPlayingIdleAnim = useRef(false)
 
   const keysRef = useRef<KeyState>({
     w: false,
@@ -88,23 +87,46 @@ export function Player() {
     [clipNames],
   )
 
-  // Helper: relaxed idle pose based on your walk values
-  const applyRelaxedArms = () => {
+  // ---- RELAXED POSE HELPERS ----
+
+  const applyRelaxedArmsInstant = () => {
     const left = armBonesRef.current.left
     const right = armBonesRef.current.right
     if (left) {
-      // from walk: x≈-0.15, y≈1.18, z≈0.10
-      left.rotation.x = -0.01   // less swing
-      left.rotation.y = 1.18    // keep around-body rotation
-      left.rotation.z = 0.02    // almost no roll
+      left.rotation.set(-0.01, 1.18, 0.02)
     }
     if (right) {
-      // from walk: x≈-0.20, y≈1.18, z≈-0.03
-      right.rotation.x = -0.05
-      right.rotation.y = 1.18
-      right.rotation.z = -0.02
+      right.rotation.set(-0.05, 1.18, -0.02)
     }
   }
+
+  const lerpArmsToRelaxed = (alpha: number) => {
+    const left = armBonesRef.current.left
+    const right = armBonesRef.current.right
+
+    if (left) {
+      left.rotation.x += (-0.01 - left.rotation.x) * alpha
+      left.rotation.y += (1.18 - left.rotation.y) * alpha
+      left.rotation.z += (0.02 - left.rotation.z) * alpha
+    }
+    if (right) {
+      right.rotation.x += (-0.05 - right.rotation.x) * alpha
+      right.rotation.y += (1.18 - right.rotation.y) * alpha
+      right.rotation.z += (-0.02 - right.rotation.z) * alpha
+    }
+  }
+
+  const clearAllActions = () => {
+    if (!actions) return
+    Object.values(actions).forEach((action) => {
+      if (!action) return
+      action.stop()
+      action.reset()
+    })
+    mixer?.stopAllAction()
+  }
+
+  // -------------------------------
 
   useEffect(() => {
     if (rootRef.current) {
@@ -114,7 +136,7 @@ export function Player() {
     }
   }, [setPlayerPos, setPlayerRot])
 
-  // Find arm bones and set initial relaxed pose
+  // Find arm bones + hip/root bone and set initial relaxed pose
   useEffect(() => {
     if (!gltf?.scene) return
 
@@ -127,17 +149,14 @@ export function Player() {
       if (n.includes('upperarm_r')) {
         armBonesRef.current.right = obj
       }
+
+      if (!hipBoneRef.current && (n.includes('hips') || n === 'hips')) {
+        hipBoneRef.current = obj
+      }
     })
 
-    console.log('ARM BONES:', {
-      left: armBonesRef.current.left?.name,
-      right: armBonesRef.current.right?.name,
-    })
-
-    // Wait a frame so skeleton is ready, then pose
     requestAnimationFrame(() => {
-      applyRelaxedArms()
-      console.log('✅ Applied relaxed arms at start')
+      applyRelaxedArmsInstant()
     })
   }, [gltf?.scene])
 
@@ -214,56 +233,58 @@ export function Player() {
       root.rotation.y = angle
       setPlayerRot(angle)
 
-      bobOffset.current += delta * BOB_SPEED
-      visual.position.y = Math.abs(Math.sin(bobOffset.current)) * BOB_AMOUNT
-
+      // no screen bob
+      visual.position.y = 0
       idleTimer.current = 0
-      isPlayingIdleAnim.current = false
     } else {
       visual.position.y = 0
-      bobOffset.current = 0
       idleTimer.current += delta
+
+      // relax arms while idle
+      lerpArmsToRelaxed(0.15)
     }
 
     setPlayerPos({ x: root.position.x, z: root.position.z })
 
     if (!actions) return
 
+    // movement ↔ idle transition
     if (isMoving !== prevMovingRef.current) {
       if (isMoving) {
-        if (idleClipName && actions[idleClipName]) {
-          actions[idleClipName].stop()
-        }
+        // start walk animation (visual only)
+        clearAllActions()
         if (walkClipName && actions[walkClipName]) {
-          actions[walkClipName].reset().play()
+          const walkAction = actions[walkClipName]
+          walkAction.reset()
+          walkAction.setLoop(THREE.LoopRepeat, Infinity)
+          walkAction.play()
         }
-        isPlayingIdleAnim.current = false
       } else {
-        if (walkClipName && actions[walkClipName]) {
-          actions[walkClipName].stop()
-        }
-        if (idleClipName && actions[idleClipName]) {
-          actions[idleClipName].stop()
-        }
-        mixer?.stopAllAction()
-        isPlayingIdleAnim.current = false
-
-        // Just stopped moving → re-apply relaxed arms once
-        applyRelaxedArms()
-        console.log('✅ Applied relaxed arms after stop')
+        // stop moving: stop all animations, snap to relaxed pose
+        clearAllActions()
+        applyRelaxedArmsInstant()
       }
       prevMovingRef.current = isMoving
     }
 
+    // optional long idle animation on top
     if (
       !isMoving &&
-      !isPlayingIdleAnim.current &&
       idleTimer.current >= IDLE_DELAY &&
       idleClipName &&
       actions[idleClipName]
     ) {
-      actions[idleClipName].reset().play()
-      isPlayingIdleAnim.current = true
+      const idleAction = actions[idleClipName]
+      if (!idleAction.isRunning()) {
+        idleAction.reset().play()
+      }
+    }
+
+    // lock hip/root so animation does not move the character (kills root motion)
+    const hip = hipBoneRef.current
+    if (hip) {
+      hip.position.x = 0
+      hip.position.z = 0
     }
   })
 
