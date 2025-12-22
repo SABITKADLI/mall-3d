@@ -201,8 +201,8 @@ export function Player() {
     let moveX = 0
     let moveZ = 0
 
-    if (keys.w || keys.arrowUp) moveZ += SPEED
-    if (keys.s || keys.arrowDown) moveZ -= SPEED
+    if (keys.w || keys.arrowUp) moveZ -= SPEED
+    if (keys.s || keys.arrowDown) moveZ += SPEED
     if (keys.a || keys.arrowLeft) moveX -= SPEED
     if (keys.d || keys.arrowRight) moveX += SPEED
 
